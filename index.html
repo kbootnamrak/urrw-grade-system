@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root { 
+      --primary: #B22222; 
+      --primary-dark: #8B0000;
+      --accent: #D4AF37; 
+      --text-dark: #2c3e50;
+    }
+    body { font-family: 'Sarabun', sans-serif; background: #f4f6f9; margin: 0; height: 100vh; overflow: hidden; display: flex; }
+    #login-page { width: 100%; height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, rgba(178, 34, 34, 0.9) 0%, rgba(44, 62, 80, 0.9) 100%); position: absolute; top: 0; left: 0; z-index: 2000; }
+    .login-card { width: 100%; max-width: 400px; margin: 20px; background: #ffffff; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.3); overflow: hidden; }
+    .login-header { background: var(--primary); padding: 30px 20px 20px; text-align: center; border-bottom: 5px solid var(--accent); }
+    .login-header h4 { color: #ffffff; font-weight: 700; font-size: 1.2rem; margin-top: 10px; line-height: 1.4; }
+    #app-container { display: none; flex-direction: column; width: 100vw; height: 100vh; }
+    #mobile-navbar { display: none; background: var(--text-dark); color: white; padding: 10px 20px; align-items: center; justify-content: space-between; border-bottom: 3px solid var(--primary); }
+    #app-body { display: flex; flex: 1; overflow: hidden; position: relative; }
+    #sidebar { width: 280px; background: var(--text-dark); color: white; display: flex; flex-direction: column; z-index: 1040; transition: 0.3s ease-in-out; }
+    .sidebar-header { padding: 30px 20px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); position: relative; }
+    .close-sidebar-btn { display: none; position: absolute; top: 15px; right: 15px; font-size: 1.5rem; color: rgba(255,255,255,0.5); cursor: pointer; }
+    .nav-link { color: rgba(255,255,255,0.7); padding: 15px 25px; border-radius: 0; border-left: 5px solid transparent; cursor: pointer; display: none; }
+    .nav-link:hover, .nav-link.active { color: white; background: rgba(255,255,255,0.1); border-left-color: var(--accent); }
+    #main-content { flex: 1; overflow-y: auto; padding: 30px; background: #f4f6f9; }
+    .card-urrnw { border: none; border-top: 5px solid var(--primary); border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); }
+    .btn-urrnw { background: var(--primary); color: white; border: none; transition: all 0.3s; }
+    .btn-urrnw:hover { background: var(--primary-dark); color: var(--accent); }
+    .status-badge { padding: 6px 14px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; display: inline-block; }
+    .status-waiting { background: #fff3cd; color: #856404; }
+    .status-done { background: #d4edda; color: #155724; }
+    .status-error { background: #f8d7da; color: #721c24; }
+    .swal2-container { z-index: 9999 !important; }
+    .password-toggle { cursor: pointer; }
+    .dash-card { border-radius: 15px; border: none; box-shadow: 0 5px 15px rgba(0,0,0,0.05); transition: 0.3s; }
+    .dash-card:hover { transform: translateY(-3px); }
+    @media (max-width: 768px) {
+      #mobile-navbar { display: flex; }
+      #sidebar { position: fixed; left: -280px; height: 100%; box-shadow: 5px 0 15px rgba(0,0,0,0.3); }
+      #sidebar.open { left: 0; }
+      .close-sidebar-btn { display: block; }
+      #main-content { padding: 15px; }
+      .table-responsive { border: 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="login-page">
+    <div class="login-card">
+      <div class="login-header">
+        <span class="fa-stack fa-2x mb-2">
+          <i class="fas fa-circle fa-stack-2x" style="color: rgba(255,255,255,0.1);"></i>
+          <i class="fas fa-graduation-cap fa-stack-1x" style="color: var(--accent);"></i>
+        </span>
+        <h4>โรงเรียนอุบลรัตนราชกัญญาราชวิทยาลัย นครราชสีมา</h4>
+        <div class="text-warning mt-1 fw-bold">ระบบงานทะเบียนวัดผล (URRW.NM)</div>
+      </div>
+      <div class="p-4 p-md-5">
+        <div class="input-group mb-3 border rounded">
+          <span class="input-group-text bg-white border-0 text-danger"><i class="fas fa-user"></i></span>
+          <input type="text" id="user" class="form-control border-0" placeholder="ชื่อผู้ใช้งาน (Username)" required>
+        </div>
+        <div class="input-group mb-4 border rounded">
+          <span class="input-group-text bg-white border-0 text-danger"><i class="fas fa-lock"></i></span>
+          <input type="password" id="pass" class="form-control border-0" placeholder="รหัสผ่าน (Password)" required>
+          <span class="input-group-text bg-white border-0 text-secondary password-toggle" onclick="togglePassword('pass', this)"><i class="far fa-eye"></i></span>
+        </div>
+        <button class="btn btn-urrnw w-100 py-2 mb-2 fs-6 rounded-3 shadow-sm" onclick="login()">
+          <i class="fas fa-sign-in-alt me-2"></i>เข้าสู่ระบบ
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="app-container">
+    <div id="mobile-navbar">
+      <h6 class="m-0 fw-bold text-warning"><i class="fas fa-graduation-cap me-2"></i>งานทะเบียน URRW.NM</h6>
+      <button class="btn btn-sm btn-outline-light border-0" onclick="toggleSidebar()"><i class="fas fa-bars fa-lg"></i></button>
+    </div>
+    <div id="app-body">
+      <nav id="sidebar">
+        <div class="sidebar-header">
+          <i class="fas fa-times close-sidebar-btn" onclick="toggleSidebar()"></i>
+          <h5 class="mb-0 fw-bold" style="color: var(--accent);">งานทะเบียนวัดผล</h5>
+          <small id="displayTeacherName" class="d-block mt-2"></small>
+        </div>
+        <div class="nav flex-column mt-3">
+          <a id="link-form" class="nav-link menu-teacher" onclick="showTab('form-tab')"><i class="fas fa-edit me-3"></i>แจ้งแก้ไขเกรด</a>
+          <a id="link-status" class="nav-link menu-teacher" onclick="showTab('status-tab')"><i class="fas fa-history me-3"></i>ตรวจสอบสถานะ</a>
+          <a id="link-password" class="nav-link menu-teacher" onclick="showTab('password-tab')"><i class="fas fa-key me-3"></i>เปลี่ยนรหัสผ่าน</a>
+          
+          <a id="link-dashboard" class="nav-link menu-admin" onclick="showTab('dashboard-tab')"><i class="fas fa-chart-pie me-3"></i>แดชบอร์ดภาพรวม</a>
+          <a id="link-admin" class="nav-link menu-admin" onclick="showTab('admin-tab')"><i class="fas fa-user-shield me-3"></i>แผงควบคุมนายทะเบียน</a>
+          
+          <a class="nav-link mt-5 text-danger menu-all" onclick="logout()" style="display: block;"><i class="fas fa-sign-out-alt me-3"></i>ออกจากระบบ</a>
+        </div>
+      </nav>
+
+      <main id="main-content">
+        <div id="form-tab" class="tab-content">
+          <h4 class="mb-4 fw-bold" style="color: var(--primary);"><i class="fas fa-file-signature me-2"></i>ฟอร์มแจ้งแก้ไขผลการเรียน</h4>
+          <div class="card card-urrnw p-3 p-md-4">
+            <form id="gradeForm">
+              <div class="row mb-3">
+                <div class="col-md-6 mb-3 mb-md-0">
+                  <label class="form-label fw-bold text-dark">รหัสวิชา-ชื่อวิชา</label>
+                  <input type="text" class="form-control" name="subjectName" id="subjectName" placeholder="เช่น ว33202 ฟิสิกส์ 6" required>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label fw-bold text-dark">รหัสนักเรียน</label>
+                  <div class="input-group">
+                    <input type="text" id="stdId" class="form-control" name="studentId" placeholder="รหัส 5 หลัก">
+                    <button class="btn btn-outline-danger" type="button" onclick="searchStd()"><i class="fas fa-search"></i> ค้นหา</button>
+                  </div>
+                </div>
+              </div>
+              <div class="row mb-4">
+                <div class="col-md-6 mb-3 mb-md-0">
+                  <label class="form-label fw-bold text-dark">ชื่อ-นามสกุล</label>
+                  <input type="text" id="stdName" class="form-control bg-light" name="studentName" readonly required>
+                </div>
+                <div class="col-md-3 mb-3 mb-md-0">
+                  <label class="form-label fw-bold text-dark">ชั้น/ห้อง</label>
+                  <input type="text" id="stdRoom" class="form-control bg-light" name="studentRoom" readonly required>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label fw-bold text-dark">เลขที่</label>
+                  <input type="text" id="stdNo" class="form-control bg-light" name="studentNo" readonly required>
+                </div>
+              </div>
+              <div class="row mb-4">
+                <div class="col-6">
+                  <label class="form-label fw-bold text-dark">เกรดเดิม</label>
+                  <select class="form-select" name="oldGrade" id="oldGrade" onchange="updateNewGradeOptions()" required>
+                    <option value="" selected disabled>เลือก...</option>
+                    <option value="0">0</option><option value="ร">ร</option><option value="มส">มส</option><option value="มผ">มผ</option>
+                  </select>
+                </div>
+                <div class="col-6">
+                  <label class="form-label fw-bold text-dark">เกรดใหม่</label>
+                  <select class="form-select" name="newGrade" id="newGrade" required>
+                    <option value="" selected disabled>เลือกเกรดเดิมก่อน...</option>
+                  </select>
+                </div>
+              </div>
+              <button type="button" class="btn btn-urrnw px-4 py-2 w-100 fs-6 shadow-sm" onclick="submitForm()">
+                <i class="fas fa-paper-plane me-2"></i>บันทึกและส่งข้อมูลให้งานทะเบียน
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <div id="status-tab" class="tab-content" style="display:none;">
+          <h4 class="mb-4 fw-bold" style="color: var(--primary);"><i class="fas fa-clock-rotate-left me-2"></i>ประวัติการส่งข้อมูลของท่าน</h4>
+          <div id="statusList"></div>
+        </div>
+
+        <div id="dashboard-tab" class="tab-content" style="display:none;">
+          <h4 class="mb-4 fw-bold text-dark"><i class="fas fa-chart-pie me-2"></i>แดชบอร์ดภาพรวมระบบงานทะเบียน</h4>
+          <div class="row mb-4">
+            <div class="col-6 col-md-3 mb-3"><div class="card dash-card p-3 text-white" style="background: #2c3e50;"><small>รายการส่งทั้งหมด</small><h3 id="dashTotal" class="fw-bold mb-0">0</h3></div></div>
+            <div class="col-6 col-md-3 mb-3"><div class="card dash-card p-3 text-dark" style="background: #fff3cd;"><small>รอตรวจสอบ</small><h3 id="dashWaiting" class="fw-bold mb-0">0</h3></div></div>
+            <div class="col-6 col-md-3 mb-3"><div class="card dash-card p-3 text-white" style="background: #198754;"><small>อนุมัติเรียบร้อย</small><h3 id="dashDone" class="fw-bold mb-0">0</h3></div></div>
+            <div class="col-6 col-md-3 mb-3"><div class="card dash-card p-3 text-white" style="background: #dc3545;"><small>ข้อมูลไม่ถูกต้อง</small><h3 id="dashError" class="fw-bold mb-0">0</h3></div></div>
+          </div>
+          <div class="row">
+            <div class="col-12 col-md-6 mx-auto">
+              <div class="card card-urrnw p-4 text-center">
+                <h5 class="fw-bold mb-3 text-dark"><i class="fas fa-chart-donut"></i> แผนภูมิวงกลมสัดส่วนงานดำเนินการ</h5>
+                <div style="position: relative; max-height: 320px; display: flex; justify-content: center;">
+                  <canvas id="statusPieChart"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="admin-tab" class="tab-content" style="display:none;">
+          <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-2">
+            <h4 class="mb-0 fw-bold text-dark"><i class="fas fa-user-gear me-2"></i>แผงควบคุมนายทะเบียน</h4>
+            <div class="d-flex gap-2 flex-grow-1 justify-content-md-end">
+              <select id="statusFilter" class="form-select border-danger" style="max-width: 150px; cursor: pointer;" onchange="filterAdminTable()">
+                <option value="">ทุกสถานะ</option><option value="รอตรวจสอบ">รอตรวจสอบ</option><option value="อนุมัติแล้ว">อนุมัติแล้ว</option><option value="ไม่ถูกต้อง">ไม่ถูกต้อง</option>
+              </select>
+              <div class="input-group" style="max-width: 250px;">
+                <span class="input-group-text bg-white"><i class="fas fa-search text-muted"></i></span>
+                <input type="text" id="adminSearch" class="form-control" placeholder="ค้นหาชื่อ, รหัส..." onkeyup="filterAdminTable()">
+              </div>
+            </div>
+          </div>
+          <div class="table-responsive bg-white shadow-sm p-3 rounded" style="max-height: 600px; overflow-y: auto;">
+            <table class="table table-hover align-middle" id="adminTable" style="min-width: 900px;">
+              <thead class="table-light sticky-top">
+                <tr><th>วันเวลา</th><th>ครูผู้สอน</th><th>นักเรียน</th><th>ห้อง</th><th>เลขที่</th><th>วิชา</th><th>เกรด</th><th>สถานะ</th><th>จัดการ</th></tr>
+              </thead>
+              <tbody id="adminTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="password-tab" class="tab-content" style="display:none;">
+          <h4 class="mb-4 fw-bold" style="color: var(--primary);"><i class="fas fa-key me-2"></i>เปลี่ยนรหัสผ่านของคุณ</h4>
+          <div class="card card-urrnw p-4" style="max-width: 500px;">
+            <form id="passwordForm">
+              <div class="mb-3"><label class="form-label fw-bold text-dark">รหัสผ่านเดิม</label><input type="password" id="oldPass" class="form-control" placeholder="กรอกรหัสผ่านปัจจุบัน" required></div>
+              <div class="mb-3"><label class="form-label fw-bold text-dark">รหัสผ่านใหม่</label><div class="input-group"><input type="password" id="newPass" class="form-control" placeholder="ตั้งรหัสผ่านใหม่" required><span class="input-group-text bg-white text-secondary password-toggle" onclick="togglePassword('newPass', this)"><i class="far fa-eye"></i></span></div></div>
+              <div class="mb-4"><label class="form-label fw-bold text-dark">ยืนยันรหัสผ่านใหม่</label><div class="input-group"><input type="password" id="confirmPass" class="form-control" placeholder="กรอกรหัสผ่านใหม่อีกครั้ง" required><span class="input-group-text bg-white text-secondary password-toggle" onclick="togglePassword('confirmPass', this)"><i class="far fa-eye"></i></span></div></div>
+              <button type="button" class="btn btn-urrnw w-100 py-2 fs-6 shadow-sm" onclick="changePassword()"><i class="fas fa-save me-2"></i>อัปเดตรหัสผ่าน</button>
+            </form>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
+  <script>
+    // ===== ตั้งค่าเชื่อมต่อ Supabase Database =====
+    const supabaseUrl = 'https://kpzmyhnnxcdjgvlahhlf.supabase.co';
+    const supabaseKey = 'sb_publishable_YMk4NUiEju8YzW0fn17ysg_D9M19tNz';
+    const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
+    let currentTeacher = "";
+    let currentUsername = "";
+    let currentRole = ""; 
+    let pieChartInstance = null;
+
+    window.onload = function() {
+      const savedUser = localStorage.getItem('urrw_username');
+      const savedName = localStorage.getItem('urrw_teachername');
+      const savedRole = localStorage.getItem('urrw_role');
+      if (savedUser && savedName && savedRole) {
+        currentUsername = savedUser; currentTeacher = savedName; currentRole = savedRole; setupSession();
+      }
+    };
+
+    function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
+    function togglePassword(inputId, iconSpan) {
+      const input = document.getElementById(inputId); const icon = iconSpan.querySelector('i');
+      if (input.type === "password") { input.type = "text"; icon.classList.replace('fa-eye', 'fa-eye-slash'); } 
+      else { input.type = "password"; icon.classList.replace('fa-eye-slash', 'fa-eye'); }
+    }
+
+    function updateNewGradeOptions() {
+      const oldGrade = document.getElementById('oldGrade').value;
+      const newGradeSelect = document.getElementById('newGrade');
+      newGradeSelect.innerHTML = '<option value="" selected disabled>เลือกเกรดใหม่...</option>';
+      let options = [];
+      if (oldGrade === "0") options = ["1"];
+      else if (oldGrade === "ร") options = ["0", "1", "1.5", "2", "2.5", "3", "3.5", "4"];
+      else if (oldGrade === "มส") options = ["0", "1"];
+      else if (oldGrade === "มผ") options = ["ผ"];
+      options.forEach(opt => {
+        const el = document.createElement('option'); el.value = opt; el.textContent = opt; newGradeSelect.appendChild(el);
+      });
+    }
+
+    // [SUPABASE] ฟังก์ชันล็อกอิน
+    async function login() {
+      const u = document.getElementById('user').value.trim();
+      const p = document.getElementById('pass').value.trim();
+      if (!u || !p) return Swal.fire('แจ้งเตือน', 'กรุณากรอกข้อมูลให้ครบ', 'warning');
+      
+      Swal.fire({ title: 'กำลังตรวจสอบ...', allowOutsideClick: false, didOpen: () => { Swal.showLoading() } });
+      
+      try {
+        if (u.toLowerCase() === 'admin' && p === '979670') {
+          processLoginSuccess("admin", "งานทะเบียนวัดผล", "admin");
+          return;
+        }
+
+        const { data, error } = await _supabase.from('TeacherUsers')
+            .select('*')
+            .eq('username', u)
+            .eq('password', p);
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          // อย่าลืมเช็คชีท TeacherUsers ว่าตั้งชื่อคอลัมน์ชื่อครูว่า 'name' นะครับ
+          processLoginSuccess("teacher", data[0].name || u, data[0].username);
+        } else {
+          Swal.fire('ผิดพลาด', 'Username หรือ Password ไม่ถูกต้อง', 'error');
+        }
+      } catch (err) {
+        Swal.fire('ข้อผิดพลาดระบบ', err.message, 'error');
+      }
+    }
+
+    function processLoginSuccess(role, name, user) {
+      Swal.close();
+      currentTeacher = name; currentUsername = user; currentRole = role;
+      localStorage.setItem('urrw_username', user);
+      localStorage.setItem('urrw_teachername', name);
+      localStorage.setItem('urrw_role', role);
+      setupSession();
+    }
+
+    function setupSession() {
+      document.getElementById('displayTeacherName').innerText = currentTeacher;
+      document.getElementById('login-page').style.display = 'none';
+      document.getElementById('app-container').style.display = 'flex';
+      
+      if (currentRole === "admin") {
+        document.querySelectorAll('.menu-teacher').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('.menu-admin').forEach(el => el.style.display = 'block');
+        showTab('dashboard-tab'); 
+      } else {
+        document.querySelectorAll('.menu-teacher').forEach(el => el.style.display = 'block');
+        document.querySelectorAll('.menu-admin').forEach(el => el.style.display = 'none');
+        showTab('form-tab');
+      }
+    }
+
+    function showTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
+      document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+      document.getElementById(tabId).style.display = 'block';
+      
+      if (tabId === 'form-tab') document.getElementById('link-form').classList.add('active');
+      if (tabId === 'status-tab') document.getElementById('link-status').classList.add('active');
+      if (tabId === 'admin-tab') document.getElementById('link-admin').classList.add('active');
+      if (tabId === 'dashboard-tab') document.getElementById('link-dashboard').classList.add('active');
+      
+      if(window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('open');
+      if(tabId === 'status-tab') loadTeacherStatus();
+      if(tabId === 'admin-tab') { document.getElementById("statusFilter").value = ""; document.getElementById("adminSearch").value = ""; loadAdminData(); }
+      if(tabId === 'dashboard-tab') loadDashboardData();
+    }
+
+    // [SUPABASE] ฟังก์ชันค้นหานักเรียน
+    async function searchStd() {
+      const id = document.getElementById('stdId').value.trim();
+      if (!id) return Swal.fire('แจ้งเตือน', 'กรุณากรอกรหัสนักเรียน', 'warning');
+      
+      document.getElementById('stdName').value = 'กำลังค้นหา...';
+      document.getElementById('stdRoom').value = ''; document.getElementById('stdNo').value = '';
+      
+      try {
+        const { data, error } = await _supabase.from('StudentData').select('*').eq('student_id', id);
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          const std = data[0];
+          if (std.status === "ลาออก" || std.status === "แขวนลอย" || std.status === "พ้นสภาพ") {
+            document.getElementById('stdName').value = '';
+            Swal.fire('ข้อมูลถูกระงับ', `ไม่สามารถแจ้งผลได้ เนื่องจากนักเรียนมีสถานะ: ${std.status}`, 'error');
+            return;
+          }
+          document.getElementById('stdName').value = std.name;
+          document.getElementById('stdRoom').value = std.room;
+          document.getElementById('stdNo').value = std.number; 
+        } else {
+          document.getElementById('stdName').value = '';
+          Swal.fire('ไม่พบข้อมูล', 'ไม่มีรหัสนักเรียนนี้ในระบบ', 'error'); 
+        }
+      } catch (err) {
+        Swal.fire('ข้อผิดพลาด', err.message, 'error');
+      }
+    }
+
+    // [SUPABASE] ฟังก์ชันบันทึกข้อมูลเกรด
+    async function submitForm() {
+      const form = document.getElementById('gradeForm');
+      if(!document.getElementById('stdName').value || document.getElementById('stdName').value === 'กำลังค้นหา...') {
+        return Swal.fire('แจ้งเตือน', 'กรุณาค้นหาและตรวจสอบชื่อนักเรียนก่อนส่ง', 'warning');
+      }
+      if(!form.checkValidity()) return Swal.fire('แจ้งเตือน', 'กรุณากรอกข้อมูลให้ครบถ้วน', 'warning');
+
+      Swal.fire({ title: 'กำลังบันทึกเข้าฐานข้อมูล...', allowOutsideClick: false, didOpen: () => { Swal.showLoading() } });
+      
+      try {
+        const { error } = await _supabase.from('Submissions').insert([{
+          teacher_name: currentTeacher,
+          subject_name: document.getElementById('subjectName').value,
+          student_id: document.getElementById('stdId').value,
+          student_name: document.getElementById('stdName').value,
+          student_room: document.getElementById('stdRoom').value,
+          student_no: document.getElementById('stdNo').value,
+          old_grade: document.getElementById('oldGrade').value,
+          new_grade: document.getElementById('newGrade').value,
+          status: 'รอตรวจสอบ',
+          username: currentUsername
+        }]);
+
+        if (error) throw error;
+
+        Swal.fire({ title: 'สำเร็จ', text: 'บันทึกเข้าระบบ Supabase เรียบร้อย', icon: 'success', confirmButtonColor: '#B22222' });
+        form.reset(); updateNewGradeOptions(); 
+      } catch (err) {
+        Swal.fire('ผิดพลาด', err.message, 'error');
+      }
+    }
+
+    // [SUPABASE] โหลดประวัติครู
+    async function loadTeacherStatus() {
+      document.getElementById('statusList').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-danger"></div></div>';
+      try {
+        const { data, error } = await _supabase.from('Submissions')
+            .select('*')
+            .eq('username', currentUsername)
+            .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+          document.getElementById('statusList').innerHTML = '<div class="alert alert-light text-center py-4 border">ยังไม่มีประวัติการส่งข้อมูลครับ</div>';
+          return;
+        }
+
+        let html = '<div class="row">';
+        data.forEach(row => {
+          let badgeClass = "status-waiting";
+          if (row.status === "อนุมัติแล้ว") badgeClass = "status-done";  
+          if (row.status === "ไม่ถูกต้อง") badgeClass = "status-error";
+          
+          const dateStr = new Date(row.created_at).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' });
+          
+          html += `
+          <div class="col-md-6 col-lg-4 mb-3">
+            <div class="card p-3 shadow-sm border-0 border-top border-3 border-danger h-100">
+              <div class="d-flex justify-content-between align-items-start mb-2">
+                <h6 class="mb-0 fw-bold text-dark lh-base">${row.student_name} <br><small class="text-muted">(${row.student_id})</small></h6>
+                <span class="status-badge ${badgeClass}">${row.status}</span>
+              </div>
+              <div class="text-muted small mb-1 mt-2"><i class="fas fa-door-open me-2 text-secondary"></i>ห้อง: ${row.student_room} | เลขที่: ${row.student_no}</div>
+              <div class="text-muted small mb-1"><i class="fas fa-book me-2 text-danger"></i>วิชา: ${row.subject_name}</div>
+              <div class="text-muted small mb-2"><i class="fas fa-exchange-alt me-2 text-primary"></i>เกรด: ${row.old_grade} <i class="fas fa-arrow-right mx-1"></i> <span class="text-danger fw-bold fs-6">${row.new_grade}</span></div>
+              <div style="font-size: 0.75rem; color: #999; margin-top: auto; padding-top:10px;"><i class="far fa-clock me-1"></i>${dateStr}</div>
+            </div>
+          </div>`;
+        });
+        document.getElementById('statusList').innerHTML = html + '</div>';
+      } catch (err) {
+        document.getElementById('statusList').innerHTML = `<div class="alert alert-danger">${err.message}</div>`;
+      }
+    }
+
+    // [SUPABASE] แดชบอร์ด
+    async function loadDashboardData() {
+      try {
+        const { data, error } = await _supabase.from('Submissions').select('status');
+        if (error) throw error;
+
+        let total = data.length, waiting = 0, done = 0, errCount = 0;
+        data.forEach(row => {
+          if (row.status === "รอตรวจสอบ") waiting++;
+          else if (row.status === "อนุมัติแล้ว") done++;
+          else if (row.status === "ไม่ถูกต้อง") errCount++;
+        });
+
+        document.getElementById("dashTotal").innerText = total;
+        document.getElementById("dashWaiting").innerText = waiting;
+        document.getElementById("dashDone").innerText = done;
+        document.getElementById("dashError").innerText = errCount;
+
+        const ctx = document.getElementById('statusPieChart').getContext('2d');
+        if (pieChartInstance) pieChartInstance.destroy(); 
+        
+        pieChartInstance = new Chart(ctx, {
+          type: 'pie',
+          data: {
+            labels: ['รอตรวจสอบ', 'อนุมัติแล้ว', 'ไม่ถูกต้อง'],
+            datasets: [{
+              data: [waiting, done, errCount],
+              backgroundColor: ['#fbc02d', '#198754', '#dc3545'],
+              borderWidth: 2, borderColor: '#ffffff'
+            }]
+          },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { font: { family: 'Sarabun', size: 13 } } } } }
+        });
+      } catch (err) { console.error(err); }
+    }
+
+    // [SUPABASE] โหลดตารางนายทะเบียน
+    async function loadAdminData() {
+      document.getElementById('adminTableBody').innerHTML = '<tr><td colspan="9" class="text-center py-4"><div class="spinner-border text-danger"></div></td></tr>';
+      try {
+        const { data, error } = await _supabase.from('Submissions').select('*').order('created_at', { ascending: false });
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+          document.getElementById('adminTableBody').innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted">ยังไม่มีข้อมูลในฐานข้อมูล</td></tr>';
+          return;
+        }
+
+        let html = "";
+        data.forEach(row => {
+          let badgeClass = "status-waiting";
+          if (row.status === "อนุมัติแล้ว") badgeClass = "status-done"; 
+          if (row.status === "ไม่ถูกต้อง") badgeClass = "status-error";
+          
+          const dateStr = new Date(row.created_at).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' });
+          
+          html += `
+          <tr>
+            <td><small class="text-muted" style="font-size:0.75rem;">${dateStr}</small></td>
+            <td>
+              <div class="fw-bold text-dark" style="font-size:0.9rem;">${row.teacher_name}</div>
+              <small class="text-muted" style="font-size:0.8rem;"><i class="fas fa-user-circle"></i> User: ${row.username}</small>
+            </td>
+            <td>${row.student_name} <br><small class="text-muted">${row.student_id}</small></td>
+            <td style="font-size:0.9rem;" class="fw-bold text-primary">${row.student_room}</td>
+            <td style="font-size:0.9rem;" class="fw-bold text-dark text-center">${row.student_no}</td> <td>${row.subject_name}</td>
+            <td>${row.old_grade} <i class="fas fa-arrow-right mx-1 text-muted"></i> <strong class="text-danger">${row.new_grade}</strong></td>
+            <td><span class="status-badge ${badgeClass}">${row.status}</span></td>
+            <td>
+              <select onchange="updateStatus(${row.id}, this.value)" class="form-select form-select-sm border-danger" style="width: 130px; cursor: pointer;">
+                <option value="รอตรวจสอบ" ${row.status==='รอตรวจสอบ'?'selected':''}>รอตรวจสอบ</option>
+                <option value="อนุมัติแล้ว" ${row.status==='อนุมัติแล้ว'?'selected':''}>อนุมัติแล้ว</option>
+                <option value="ไม่ถูกต้อง" ${row.status==='ไม่ถูกต้อง'?'selected':''}>ไม่ถูกต้อง</option>
+              </select>
+            </td>
+          </tr>`;
+        });
+        document.getElementById('adminTableBody').innerHTML = html;
+        filterAdminTable(); 
+      } catch (err) {
+        document.getElementById('adminTableBody').innerHTML = `<tr><td colspan="9" class="text-center text-danger">${err.message}</td></tr>`;
+      }
+    }
+
+    function filterAdminTable() {
+      const searchInput = document.getElementById("adminSearch").value.toLowerCase();
+      const statusFilter = document.getElementById("statusFilter").value;
+      const trs = document.getElementById("adminTableBody").getElementsByTagName("tr");
+      for (let i = 0; i < trs.length; i++) {
+        const statusBadgeText = trs[i].getElementsByTagName("td")[7].innerText.trim();
+        const rowText = trs[i].innerText.toLowerCase();
+        const matchSearch = rowText.includes(searchInput);
+        const matchStatus = statusFilter === "" || statusBadgeText === statusFilter;
+        trs[i].style.display = (matchSearch && matchStatus) ? "" : "none";
+      }
+    }
+
+    // [SUPABASE] อัปเดตสถานะเกรด
+    async function updateStatus(id, newStatus) {
+      if(!newStatus) return;
+      Swal.fire({ title: 'กำลังอัปเดต...', allowOutsideClick: false, didOpen: () => { Swal.showLoading() } });
+      try {
+        const { error } = await _supabase.from('Submissions').update({ status: newStatus }).eq('id', id);
+        if (error) throw error;
+        Swal.fire({ title: 'อัปเดตสถานะแล้ว', icon: 'success', timer: 1000, showConfirmButton: false });
+        loadAdminData(); 
+      } catch (err) {
+        Swal.fire('ผิดพลาด', err.message, 'error');
+      }
+    }
+
+    // [SUPABASE] เปลี่ยนรหัสผ่าน
+    async function changePassword() {
+      const oldP = document.getElementById('oldPass').value.trim();
+      const newP = document.getElementById('newPass').value.trim();
+      const confP = document.getElementById('confirmPass').value.trim();
+      if (!oldP || !newP || !confP) return Swal.fire('แจ้งเตือน', 'กรุณากรอกข้อมูลให้ครบถ้วน', 'warning');
+      if (newP !== confP) return Swal.fire('แจ้งเตือน', 'รหัสผ่านใหม่และการยืนยันรหัสผ่านไม่ตรงกัน', 'error');
+
+      Swal.fire({ title: 'กำลังตรวจสอบ...', allowOutsideClick: false, didOpen: () => { Swal.showLoading() } });
+      try {
+        const { data, error } = await _supabase.from('TeacherUsers').select('*').eq('username', currentUsername).eq('password', oldP);
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          const { error: updateErr } = await _supabase.from('TeacherUsers').update({ password: newP }).eq('username', currentUsername);
+          if (updateErr) throw updateErr;
+          
+          Swal.fire({ title: 'สำเร็จ', text: 'เปลี่ยนรหัสผ่านเรียบร้อยแล้วครับ', icon: 'success', confirmButtonColor: '#B22222' });
+          document.getElementById('passwordForm').reset();
+        } else {
+          Swal.fire('ผิดพลาด', 'รหัสผ่านเดิมไม่ถูกต้อง', 'error');
+        }
+      } catch (err) {
+        Swal.fire('ข้อผิดพลาด', err.message, 'error');
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem('urrw_username'); localStorage.removeItem('urrw_teachername'); localStorage.removeItem('urrw_role');
+      currentTeacher = ""; currentUsername = ""; currentRole = "";
+      document.getElementById('user').value = ""; document.getElementById('pass').value = "";
+      if(document.getElementById('adminSearch')) document.getElementById('adminSearch').value = "";
+      if(document.getElementById('statusFilter')) document.getElementById('statusFilter').value = "";
+      document.getElementById('app-container').style.display = 'none';
+      document.getElementById('login-page').style.display = 'flex';
+      document.getElementById('sidebar').classList.remove('open');
+      Swal.fire({ title: 'ออกจากระบบเรียบร้อย', icon: 'success', timer: 1200, showConfirmButton: false });
+    }
+  </script>
+</body>
+</html>
