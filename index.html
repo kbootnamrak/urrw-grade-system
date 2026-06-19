@@ -165,10 +165,26 @@
         <div id="dashboard-tab" class="tab-content" style="display:none;">
           <h4 class="mb-4 fw-bold text-dark"><i class="fas fa-chart-pie me-2"></i>แดชบอร์ดภาพรวมระบบงานทะเบียน</h4>
           <div class="row mb-4">
-            <div class="col-6 col-md-3 mb-3"><div class="card dash-card p-3 text-white" style="background: #2c3e50;"><small>รายการส่งทั้งหมด</small><h3 id="dashTotal" class="fw-bold mb-0">0</h3></div></div>
-            <div class="col-6 col-md-3 mb-3"><div class="card dash-card p-3 text-dark" style="background: #fff3cd;"><small>รอตรวจสอบ</small><h3 id="dashWaiting" class="fw-bold mb-0">0</h3></div></div>
-            <div class="col-6 col-md-3 mb-3"><div class="card dash-card p-3 text-white" style="background: #198754;"><small>อนุมัติเรียบร้อย</small><h3 id="dashDone" class="fw-bold mb-0">0</h3></div></div>
-            <div class="col-6 col-md-3 mb-3"><div class="card dash-card p-3 text-white" style="background: #dc3545;"><small>ข้อมูลไม่ถูกต้อง</small><h3 id="dashError" class="fw-bold mb-0">0</h3></div></div>
+            <div class="col-6 col-md-3 mb-3">
+              <div class="card dash-card p-3 text-white" style="background: #2c3e50; cursor: pointer;" onclick="showTab('admin-tab', '')">
+                <small>รายการส่งทั้งหมด</small><h3 id="dashTotal" class="fw-bold mb-0">0</h3>
+              </div>
+            </div>
+            <div class="col-6 col-md-3 mb-3">
+              <div class="card dash-card p-3 text-dark" style="background: #fff3cd; cursor: pointer;" onclick="showTab('admin-tab', 'รอตรวจสอบ')">
+                <small>รอตรวจสอบ</small><h3 id="dashWaiting" class="fw-bold mb-0">0</h3>
+              </div>
+            </div>
+            <div class="col-6 col-md-3 mb-3">
+              <div class="card dash-card p-3 text-white" style="background: #198754; cursor: pointer;" onclick="showTab('admin-tab', 'อนุมัติแล้ว')">
+                <small>อนุมัติแล้ว</small><h3 id="dashDone" class="fw-bold mb-0">0</h3>
+              </div>
+            </div>
+            <div class="col-6 col-md-3 mb-3">
+              <div class="card dash-card p-3 text-white" style="background: #dc3545; cursor: pointer;" onclick="showTab('admin-tab', 'ไม่ถูกต้อง')">
+                <small>ข้อมูลไม่ถูกต้อง</small><h3 id="dashError" class="fw-bold mb-0">0</h3>
+              </div>
+            </div>
           </div>
           <div class="row">
             <div class="col-12 col-md-6 mx-auto">
@@ -321,7 +337,7 @@
       }
     }
 
-    function showTab(tabId) {
+   function showTab(tabId, filterStatus = null) {
       document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
       document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
       document.getElementById(tabId).style.display = 'block';
@@ -333,7 +349,18 @@
       
       if(window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('open');
       if(tabId === 'status-tab') loadTeacherStatus();
-      if(tabId === 'admin-tab') { document.getElementById("statusFilter").value = ""; document.getElementById("adminSearch").value = ""; loadAdminData(); }
+      
+      if(tabId === 'admin-tab') { 
+        document.getElementById("adminSearch").value = ""; 
+        // เช็คว่ามีการส่งค่าสถานะมาด้วยไหม (จากการคลิกที่การ์ด)
+        if (filterStatus !== null) {
+          document.getElementById("statusFilter").value = filterStatus;
+        } else {
+          document.getElementById("statusFilter").value = ""; // ถ้ากดจากเมนูด้านข้างปกติ ให้เคลียร์ค่า
+        }
+        loadAdminData(); 
+      }
+      
       if(tabId === 'dashboard-tab') loadDashboardData();
     }
 
